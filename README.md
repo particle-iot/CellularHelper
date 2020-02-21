@@ -2,7 +2,9 @@
 
 **A library to access useful things from the Electron, E Series, Boron, and B Series cellular modem**
 
-The full API documentation can be [found here](https://rickkas7.github.io/CellularHelper/).
+The full API documentation can be [found here](https://particle-iot.github.io/CellularHelper/).
+
+The Github repository for this library is now: [https://github.com/particle-iot/CellularHelper](https://github.com/particle-iot/CellularHelper).
 
 ## Simple functions
 
@@ -77,13 +79,13 @@ Log.info("rssi=%d, qual=%d, bars=%d", rssiQual.rssi, rssiQual.qual, bars);
 0000008595 [app] INFO: rssi=-75, qual=2, bars=3
 ```
 
-The RSSI is in dBm, the standard measure of signal strength. It's a negative value, and values closer to 0 are higher signal strength. There is more information in the [API documentation](https://rickkas7.github.io/CellularHelper/class_cellular_helper_class.html#af9012f92f58f5151cc7006aceadd311b).
+The RSSI is in dBm, the standard measure of signal strength. It's a negative value, and values closer to 0 are higher signal strength. There is more information in the [API documentation](https://particle-iot.github.io/CellularHelper/class_cellular_helper_class.html#af9012f92f58f5151cc7006aceadd311b).
 
 The quality value is 0 (highest quality) to 7 (lowest quality) or 99 if the value unknown. It's typically 99 for 2G connections. The qual value is described in the u-blox documentation, and it's returned by the call, but you probably won't need to use it.
 
 The `rssiToBars()` method converts the RSSI to a 0 to 5 bars, where 5 is the strongest signal.
 
-The `CellularHelper.getExtendedQualResponse()` is available on LTE Cat M1 devices and returns LTE specific parameters like the RSRP. You can find more information [here](https://rickkas7.github.io/CellularHelper/class_cellular_helper_class.html#a2cf4ec66557254498d5d7600ea66bd74).
+The `CellularHelper.getExtendedQualResponse()` is available on LTE Cat M1 devices and returns LTE specific parameters like the RSRP. You can find more information [here](https://particle-iot.github.io/CellularHelper/class_cellular_helper_class.html#a2cf4ec66557254498d5d7600ea66bd74).
 
 ### getEnvironment (2G/3G only)
 
@@ -232,6 +234,10 @@ modem and generation of device. In Device OS 1.2.1 and later, it's now easy to q
 Device OS. This example shows how.
 
 ## Version History
+
+#### 0.1.1 (2020-02-21)
+
+- Official Particle library now
 
 #### 0.1.0 (2020-02-13)
 
