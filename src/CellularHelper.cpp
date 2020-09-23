@@ -663,6 +663,7 @@ String CellularHelperEnvironmentCellData::getBandString() const {
 	return band;
 }
 
+
 int CellularHelperEnvironmentCellData::getRSSI() const {
 	int rssi = 0;
 
@@ -810,6 +811,148 @@ String CellularHelperCREGResponse::toString() const {
 		return "valid=false";
 	}
 }
+
+
+CellularHelperUCGEDResponse::CellularHelperUCGEDResponse() {
+}
+
+CellularHelperUCGEDResponse::~CellularHelperUCGEDResponse() {
+}
+
+int CellularHelperUCGEDResponse::parse(int type, const char *buf, int len) {
+	if (enableDebug) {
+		logCellularDebug(type, buf, len);
+	}
+	if (type == TYPE_PLUS) {
+		// Copy to temporary string to make processing easier
+		char *copy = (char *) malloc(len + 1);
+		if (copy) {
+			strncpy(copy, buf, len);
+			copy[len] = 0;
+
+			// +RSRP: 162,5110,"-075.00",
+			// +RSRQ: 162,5110,"-14.20",
+			// OK
+
+			char *cp = copy;
+			while(*cp && *cp != '+') {
+				cp++;
+			}
+			if (*cp == '+') {
+				cp++;
+			}
+
+			// Skip over "RSRP: " or "RSRQ: "
+			char *resp = cp;
+			cp += 6;
+
+			cp = strtok(cp, ",");
+			if (cp) {
+				// pcid
+				cp = strtok(NULL, ",");
+				if (cp) {
+					// earfcn
+					earfcn = atoi(cp);
+
+					cp = strtok(NULL, ",");
+					if (cp) {
+						// value
+						if (*cp == '"') {
+							cp++;
+							char *end = strchr(cp, '"');
+							if (end) {
+								*end = 0;
+							}
+						}
+						if (strncmp(resp, "RSRP", 4) == 0) {
+							rsrp = cp;
+						}
+						else
+						if (strncmp(resp, "RSRQ", 4) == 0) {
+							rsrq = cp;
+						}
+					}
+				}
+			}
+
+
+			free(copy);
+		}
+	}
+	return WAIT;
+}
+
+int CellularHelperUCGEDResponse::run() {
+	Log.info("running AT+UCGED command");
+	enableDebug = false;
+
+	Cellular.command("AT+UCGED=5\r\n");
+
+	resp = Cellular.command(CellularHelperClass::responseCallback, (void *)this, CellularHelperClass::DEFAULT_TIMEOUT, "AT+UCGED?\r\n");
+
+	return resp;
+}
+
+CellularHelperQNWINFOResponse::CellularHelperQNWINFOResponse() {
+
+}
+CellularHelperQNWINFOResponse::~CellularHelperQNWINFOResponse() {
+}
+
+void CellularHelperQNWINFOResponse::postProcess() {
+	// Log.info("string: %s", string.c_str());
+
+	// "CAT-M1","310410","LTE BAND 12",5110
+
+	char *copy = (char *) malloc(string.length() + 1);
+	if (copy) {
+		strncpy(copy, string.c_str(), string.length());
+		copy[string.length()] = 0;
+
+		char *endStr, *param, *cp;
+
+		param = strtok_r(copy, ",", &endStr);
+		if (param) {
+			cp = strchr(&param[1], '"');
+			if (*cp) {
+				*cp = 0;
+			}
+			act = &param[1];
+
+			param = strtok_r(NULL, ",", &endStr);
+			if (param) {
+				cp = strchr(&param[1], '"');
+				if (*cp) {
+					*cp = 0;
+				}
+				size_t len = strlen(&param[1]);
+				mnc = atoi(&param[1 + len - 3]);
+				param[1 + len - 3] = 0;
+				mcc = atoi(&param[1]);
+				// Log.info("mcc=%d mnc=%d", mcc, mnc);
+
+				param = strtok_r(NULL, ",", &endStr);
+				if (param) {
+					cp = strchr(&param[1], '"');
+					if (*cp) {
+						*cp = 0;
+					}
+					band = &param[1];
+
+					param = strtok_r(NULL, ",", &endStr);
+					if (param) {
+						channel = atoi(param);
+					}
+
+				}
+			}
+		}
+
+	}
+
+}
+
+
 
 
 String CellularHelperClass::getManufacturer() const {
@@ -1017,7 +1160,258 @@ void CellularHelperClass::getCREG(CellularHelperCREGResponse &resp) const {
 	}
 }
 
+void CellularHelperClass::getQNWINFO(CellularHelperQNWINFOResponse &resp) const {
+	resp.command = "QNWINFO";
+	resp.resp = Cellular.command(responseCallback, (void *)&resp, DEFAULT_TIMEOUT, "AT+QNWINFO\r\n");
+	if (resp.resp == RESP_OK) {
+		resp.postProcess();
+	}
+}
 
+
+String CellularHelperClass::getAccessTechnologyString(hal_net_access_tech_t rat) {
+	switch(rat) {
+	case NET_ACCESS_TECHNOLOGY_UNKNOWN:
+		return "unknown";
+
+	case NET_ACCESS_TECHNOLOGY_WIFI:
+		return "Wi-Fi";
+
+	case NET_ACCESS_TECHNOLOGY_GSM:
+		return "2G (GSM)";
+
+	case NET_ACCESS_TECHNOLOGY_EDGE:
+		return "2G (EDGE)";
+
+	case NET_ACCESS_TECHNOLOGY_UMTS:
+		return "3G";
+
+	case NET_ACCESS_TECHNOLOGY_LTE:
+		return "LTE";
+
+	case NET_ACCESS_TECHNOLOGY_LTE_CAT_M1:
+		return "LTE Cat M1";
+
+	case NET_ACCESS_TECHNOLOGY_LTE_CAT_NB1:
+		return "LTE Cat NB1";
+
+	default:
+		return String::format("unknown %d", rat);
+	}
+}
+
+bool CellularHelperClass::getNetworkInfoUCGED(CellularHelperNetworkInfo &resp) {
+	// On u-blox SARA-R410M devices, use AT+UCGED
+
+	CellularGlobalIdentity cgi = {0};
+	cgi.size = sizeof(CellularGlobalIdentity);
+	cgi.version = CGI_VERSION_LATEST;
+
+	cellular_result_t res = cellular_global_identity(&cgi, NULL);
+	if (res != SYSTEM_ERROR_NONE) {
+		return false;
+	}
+
+	CellularSignal sig = Cellular.RSSI();
+	resp.accessTechnology = getAccessTechnologyString(sig.getAccessTechnology());
+
+	CellularHelperUCGEDResponse ucgedResp;
+
+	if (ucgedResp.run() != RESP_OK) {
+		return false;
+	}
+
+	resp.mcc = cgi.mobile_country_code;
+	resp.mnc = cgi.mobile_country_code;
+
+	int bandNum, freq;
+	getLTEBandInfo(ucgedResp.earfcn, bandNum, freq, resp.band);
+
+	//Log.info("earfcn=%d", ucgedResp.earfcn);
+
+	return true;
+}
+
+
+
+bool CellularHelperClass::getNetworkInfoQNWINFO(CellularHelperNetworkInfo &resp) {
+	// On Quectel devices, use AT+QNWINFO
+
+	CellularGlobalIdentity cgi = {0};
+	cgi.size = sizeof(CellularGlobalIdentity);
+	cgi.version = CGI_VERSION_LATEST;
+
+
+	CellularHelperQNWINFOResponse qResp;
+	getQNWINFO(qResp);
+	if (qResp.resp != RESP_OK) {
+		return false;
+	}
+
+	resp.accessTechnology = qResp.act;
+	resp.mcc = qResp.mcc;
+	resp.mnc = qResp.mnc;
+
+	int bandNum, freq;
+	getLTEBandInfo(qResp.channel, bandNum, freq, resp.band);
+
+	return true;
+}
+
+bool CellularHelperClass::getNetworkInfoCGED(CellularHelperNetworkInfo &resp) {
+	// On other u-blox devices, use AT+CGED=3
+	CellularHelperEnvironmentResponse envResp;
+
+	CellularHelperClass::getEnvironment(3, envResp);
+	if (envResp.resp != RESP_OK) {
+		return false;
+	}
+	
+	if (envResp.service.isUMTS) {
+		resp.accessTechnology = "3G";
+	} else {
+		resp.accessTechnology = "2G";		
+	}
+	resp.mcc = envResp.service.mcc;
+	resp.mnc = envResp.service.mnc;
+	resp.band = envResp.service.getBandString();
+
+	return true;
+}
+
+
+bool CellularHelperClass::getNetworkInfo(CellularHelperNetworkInfo &resp)
+ {
+	CellularDevice deviceInfo;
+	
+	deviceInfo.size = sizeof(deviceInfo);
+
+	int res = cellular_device_info(&deviceInfo, NULL);
+	if (res) {
+		return false;
+	}
+	switch(deviceInfo.dev) {
+	default:
+	case DEV_UNKNOWN:
+	case DEV_SARA_U201:
+	case DEV_SARA_G350:
+		return getNetworkInfoCGED(resp);
+
+	case DEV_SARA_R410:
+		return getNetworkInfoUCGED(resp);
+
+#if SYSTEM_VERSION >= 0x01050000
+	case DEV_QUECTEL_BG96:
+	case DEV_QUECTEL_EG91_NA:
+	case DEV_QUECTEL_EG91_E:
+	case DEV_QUECTEL_EG91_EX:
+		return getNetworkInfoQNWINFO(resp);
+#endif
+	}
+}
+
+bool CellularHelperClass::getLTEBandInfo(int earfcn, int &bandNum, int &freq, String &bandStr) {
+	bandStr = "";
+
+	if (earfcn < 600) {
+		bandNum = 1;
+		freq = 2100;
+	}
+	else
+	if (earfcn < 1200) {
+		bandNum = 2;
+		freq = 1900;
+	}
+	else
+	if (earfcn < 1950) {
+		bandNum = 3;
+		freq = 1800;
+	}
+	else
+	if (earfcn < 2400) {
+		bandNum = 4;
+		freq = 2100;
+	}
+	else
+	if (earfcn < 2650) {
+		bandNum = 5;
+		freq = 900;
+	}
+	else
+	if (earfcn < 2750) {
+		bandNum = 6;
+		freq = 2600;
+	}
+	else
+	if (earfcn < 3450) {
+		bandNum = 7;
+		freq = 2600;
+	}
+	else
+	if (earfcn < 3800) {
+		bandNum = 8;
+		freq = 900;
+	}
+	else
+	if (earfcn < 4150) {
+		bandNum = 9;
+		freq = 1800;
+	}
+	else
+	if (earfcn < 4750) {
+		bandNum = 10;
+		freq = 1800;
+	}
+	else
+	if (earfcn < 5010) {
+		bandNum = 11;
+		freq = 2100;
+	}
+	else
+	if (earfcn < 5180) {
+		bandNum = 12;
+		freq = 700;
+	}
+	else
+	if (earfcn < 5280) {
+		bandNum = 13;
+		freq = 700;
+	}
+	else
+	if (earfcn < 5730) {
+		bandNum = 14;
+		freq = 700;
+	}
+	else
+	if (earfcn < 5850) {
+		bandNum = 17;
+		freq = 700;
+	}
+	else
+	if (earfcn < 6000) {
+		bandNum = 18;
+		freq = 800;
+	}
+	else
+	if (earfcn < 6150) {
+		bandNum = 19;
+		freq = 800;
+	}
+	else
+	if (earfcn < 6450) {
+		bandNum = 20;
+		freq = 800;
+	}	
+	else {
+		bandStr = String::format("unknown %d", earfcn);
+		return false;		
+	}
+
+	if (bandStr.length() == 0) {
+		bandStr = String::format("LTE %d (B%d)", freq, bandNum);
+	}
+	return true;
+}
 
 // There isn't an overload of String that takes a buffer and length, but that's what comes back from
 // the Cellular.command callback, so that's why this method exists.

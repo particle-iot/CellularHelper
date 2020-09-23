@@ -1,5 +1,5 @@
 - build: examples/1-simple
-  electron: [0.7.0, 1.0.0, 1.4.4, latest]
+  electron: [1.2.1, 1.4.4, 1.5.2, latest]
   boron: [latest]
 - build: examples/2-show-carriers
   electron: [latest]

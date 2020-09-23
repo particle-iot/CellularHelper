@@ -3,8 +3,18 @@
 
 #include "Particle.h"
 
+
 #if Wiring_Cellular
 
+
+// Class to hold results from getting network information
+class CellularHelperNetworkInfo {
+public:
+	String accessTechnology;
+	uint16_t mcc;
+	uint16_t mnc;
+	String band;
+};
 
 // Class for quering information directly from the u-blox SARA modem
 
@@ -704,6 +714,58 @@ public:
 };
 
 /**
+ * @brief Reponse class for the AT+UCGED? command.
+ * 
+ * This is used on the u-blox SARA-R410M to get the earfcn, to get the frequency band
+ */
+class CellularHelperUCGEDResponse : public CellularHelperCommonResponse {
+public:
+	CellularHelperUCGEDResponse();
+	virtual ~CellularHelperUCGEDResponse();
+
+	virtual int parse(int type, const char *buf, int len);
+
+	int run();
+
+public:
+	int earfcn = 0;
+	String rsrp;
+	String rsrq;
+	bool valid = false;
+};
+
+
+/**
+ * @brief Reponse class for the AT+QNWINFO command.
+ * 
+ * This is used on Quectel modems to get the mcc, mnc, and channel (earfcn) information.
+ */
+class CellularHelperQNWINFOResponse : public CellularHelperPlusStringResponse {
+public:
+	CellularHelperQNWINFOResponse();
+	virtual ~CellularHelperQNWINFOResponse();
+
+	/**
+	 * @brief Converts the data in string into the broken out fields 
+	 */
+	void postProcess();
+
+	/**
+	 * @brief Returns true if the results were returned from the modem
+	 */ 
+	bool isValid() const { return valid; };
+
+public:
+	bool valid = false;
+	String act;
+	int mcc;
+	int mnc;
+	String band;
+	int channel;	
+};
+
+
+/**
  * @brief Class for calling the u-blox SARA modem directly. 
  * 
  * Most of the methods you will need are in this class, and can be referenced using the
@@ -968,6 +1030,27 @@ public:
 	void getCREG(CellularHelperCREGResponse &resp) const;
 
 	/**
+	 */
+	void getQNWINFO(CellularHelperQNWINFOResponse &resp) const;
+
+	/**
+	 * @brief Get information about the network connected to (accessTechology, mcc, mnc, band)
+	 */
+	bool getNetworkInfo(CellularHelperNetworkInfo &resp);
+
+
+	/**
+	 * @brief Convert an access technology from CellularSignal into a readable string
+	 */
+	String getAccessTechnologyString(hal_net_access_tech_t rat);
+
+	/**
+	 * @brief Get LTE band information from an earfcn (available from AT+UCGED on the SARA-R410M)
+	 */
+	bool getLTEBandInfo(int earfcn, int &bandNum, int &freq, String &bandStr);
+
+
+	/**
 	 * @brief Append a buffer (pointer and length) to a String object
 	 * 
 	 * Used internally to add data to a String object with buffer and length,
@@ -1056,6 +1139,10 @@ public:
 	 */
 	static int rssiToBars(int rssi);
 
+protected:
+	bool getNetworkInfoUCGED(CellularHelperNetworkInfo &resp);
+	bool getNetworkInfoQNWINFO(CellularHelperNetworkInfo &resp);
+	bool getNetworkInfoCGED(CellularHelperNetworkInfo &resp);
 
 };
 

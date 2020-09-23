@@ -235,6 +235,11 @@ Device OS. This example shows how.
 
 ## Version History
 
+#### 0.2.1 (2020-09-23)
+
+- Minimum Device OS version is now 1.2.1
+- Added support for LTE band information on u-blox SARA-R410M and Quectel modems
+
 #### 0.1.1 (2020-02-21)
 
 - Official Particle library now
