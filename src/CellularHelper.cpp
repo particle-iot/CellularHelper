@@ -883,7 +883,6 @@ int CellularHelperUCGEDResponse::parse(int type, const char *buf, int len) {
 }
 
 int CellularHelperUCGEDResponse::run() {
-	Log.info("running AT+UCGED command");
 	enableDebug = false;
 
 	Cellular.command("AT+UCGED=5\r\n");
