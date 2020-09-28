@@ -1236,10 +1236,6 @@ bool CellularHelperClass::getNetworkInfoUCGED(CellularHelperNetworkInfo &resp) {
 bool CellularHelperClass::getNetworkInfoQNWINFO(CellularHelperNetworkInfo &resp) {
 	// On Quectel devices, use AT+QNWINFO
 
-	CellularGlobalIdentity cgi = {0};
-	cgi.size = sizeof(CellularGlobalIdentity);
-	cgi.version = CGI_VERSION_LATEST;
-
 
 	CellularHelperQNWINFOResponse qResp;
 	getQNWINFO(qResp);

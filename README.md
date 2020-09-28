@@ -235,6 +235,10 @@ Device OS. This example shows how.
 
 ## Version History
 
+#### 0.2.3 (2020-09-28)
+
+- Remove unused code that triggered a warning in getNetworkInfoQNWINFO
+
 #### 0.2.2 (2020-09-24)
 
 - Removed a Log.info statement when getting network info on a u-blox SARA-R410M device.
