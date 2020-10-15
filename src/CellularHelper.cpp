@@ -946,9 +946,9 @@ void CellularHelperQNWINFOResponse::postProcess() {
 				}
 			}
 		}
-
+		
+		free(copy);
 	}
-
 }
 
 

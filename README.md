@@ -235,6 +235,11 @@ Device OS. This example shows how.
 
 ## Version History
 
+#### 0.2.5 (2020-10-15)
+
+- Fixed a memory leak in parsing the AT+QNWINFO response. This happened when calling
+getNetworkInfo() on a Quectel modem devices.
+
 #### 0.2.3 (2020-09-28)
 
 - Remove unused code that triggered a warning in getNetworkInfoQNWINFO
